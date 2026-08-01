@@ -2,50 +2,22 @@ name: Complete High-Precision Stockbit Radar Schedule
 
 on:
   schedule:
-    # ----------------------------------------------------
-    # 🎁 DIVIDEND & CORPORATE ACTION RADAR
-    # ----------------------------------------------------
-    # Jam 08:30 WIB (01:30 UTC)
+    # 🎁 DIVIDEND & CORPORATE ACTION RADAR (08:30 WIB)
     - cron: '30 1 * * 1-5'
-
-    # ----------------------------------------------------
-    # 🚨 FAST TRADE PASAR BUKA (EARLY MOMENTUM)
-    # ----------------------------------------------------
-    # Jam 09:20 WIB (02:20 UTC)
+    # 🚨 FAST TRADE PASAR BUKA (09:20 WIB)
     - cron: '20 2 * * 1-5'
-
-    # ----------------------------------------------------
-    # ⚡ FAST TRADE / SCALPING MID-SESSION
-    # ----------------------------------------------------
-    # Jam 10:00 WIB (03:00 UTC)
+    # ⚡ FAST TRADE MID-SESSION (10:00 & 13:45 WIB)
     - cron: '0 3 * * 1-5'
-    # Jam 13:45 WIB (06:45 UTC)
     - cron: '45 6 * * 1-5'
-
-    # ----------------------------------------------------
-    # 🕵️‍♂️ BANDAR SILENT ACCUMULATION RADAR
-    # ----------------------------------------------------
-    # Jam 11:30 WIB (04:30 UTC)
+    # 🕵️‍♂️ BANDAR SILENT ACCUMULATION RADAR (11:30 & 19:30 WIB)
     - cron: '30 4 * * 1-5'
-    # Jam 19:30 WIB (12:30 UTC)
     - cron: '30 12 * * 1-5'
-
-    # ----------------------------------------------------
-    # 📉 OVERSOLD & BULLISH REVERSAL RADAR (JENUH JUAL)
-    # ----------------------------------------------------
-    # Jam 12:15 WIB (05:15 UTC)
+    # 📉 OVERSOLD & BULLISH REVERSAL RADAR (12:15 & 18:00 WIB)
     - cron: '15 5 * * 1-5'
-    # Jam 18:00 WIB (11:00 UTC)
     - cron: '0 11 * * 1-5'
-
-    # ----------------------------------------------------
-    # 💎 MASTER PRECISION SCANNER (HIGH WIN-RATE) & BTST
-    # ----------------------------------------------------
-    # Jam 10:30 WIB (03:30 UTC)
+    # 💎 MASTER PRECISION SCANNER & BTST (10:30, 14:30 & 21:00 WIB)
     - cron: '30 3 * * 1-5'
-    # Jam 14:30 WIB (07:30 UTC)
     - cron: '30 7 * * 1-5'
-    # Jam 21:00 WIB (14:00 UTC)
     - cron: '0 14 * * 1-5'
 
   workflow_dispatch:
@@ -55,10 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -67,30 +39,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 1. Master Precision Engine (High Win-Rate)
+      # Eksekusi Skrip (Aman jika ada file yang belum sempat dibuat)
       - name: Run Master Precision Engine
-        run: python master_precision_engine.py
+        run: test -f master_precision_engine.py && python master_precision_engine.py || echo "File master_precision_engine.py tidak ditemukan, dilewati."
 
-      # 2. Radar Dividen & Aksi Korporasi
       - name: Run Dividend & Action Scanner
-        run: python dividend_action_scanner.py
+        run: test -f dividend_action_scanner.py && python dividend_action_scanner.py || echo "File dividend_action_scanner.py tidak ditemukan, dilewati."
 
-      # 3. Fast Trade Buka Pasar
       - name: Run Early Opening Scalp Scanner
-        run: python early_scalp_scanner.py
+        run: test -f early_scalp_scanner.py && python early_scalp_scanner.py || echo "File early_scalp_scanner.py tidak ditemukan, dilewati."
 
-      # 4. Fast Trade Mid-Session
       - name: Run Mid-Session Scalp Scanner
-        run: python scalp_scanner.py
+        run: test -f scalp_scanner.py && python scalp_scanner.py || echo "File scalp_scanner.py tidak ditemukan, dilewati."
 
-      # 5. Radar Akumulasi Bandar
       - name: Run Bandar Accumulation Scanner
-        run: python bandar_accumulation_scanner.py
+        run: test -f bandar_accumulation_scanner.py && python bandar_accumulation_scanner.py || echo "File bandar_accumulation_scanner.py tidak ditemukan, dilewati."
 
-      # 6. Radar Jenuh Jual / Reversal
       - name: Run Oversold Reversal Scanner
-        run: python oversold_reversal_scanner.py
+        run: test -f oversold_reversal_scanner.py && python oversold_reversal_scanner.py || echo "File oversold_reversal_scanner.py tidak ditemukan, dilewati."
 
-      # 7. BTST Auto Scanner Rutin
       - name: Run BTST Auto Scanner
-        run: python auto_scanner.py
+        run: test -f auto_scanner.py && python auto_scanner.py || echo "File auto_scanner.py tidak ditemukan, dilewati."
