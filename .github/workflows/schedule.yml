@@ -1,19 +1,25 @@
-name: Auto Stockbit & Scalping Schedule
+name: Auto Stockbit, Scalping & Dividend Schedule
 
 on:
   schedule:
     # ----------------------------------------------------
+    # 🎁 DIVIDEND & CORPORATE ACTION RADAR
+    # ----------------------------------------------------
+    # Jam 08:30 WIB (01:30 UTC) - Pagi Sebelum Bursa Buka
+    - cron: '30 1 * * 1-5'
+
+    # ----------------------------------------------------
     # 🚨 FAST TRADE PASAR BUKA (EARLY MOMENTUM)
     # ----------------------------------------------------
-    # Jam 09:20 WIB (02:20 UTC) - Radar Buka Pasar
+    # Jam 09:20 WIB (02:20 UTC)
     - cron: '20 2 * * 1-5'
 
     # ----------------------------------------------------
     # ⚡ FAST TRADE / SCALPING MID-SESSION
     # ----------------------------------------------------
-    # Jam 10:00 WIB (03:00 UTC) - Sesi 1 Ramai
+    # Jam 10:00 WIB (03:00 UTC)
     - cron: '0 3 * * 1-5'
-    # Jam 13:45 WIB (06:45 UTC) - Sesi 2 Ramai
+    # Jam 13:45 WIB (06:45 UTC)
     - cron: '45 6 * * 1-5'
 
     # ----------------------------------------------------
@@ -45,14 +51,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 1. Eksekusi Radar Buka Pasar Pagi
+      # 1. Radar Dividen & Aksi Korporasi
+      - name: Run Dividend & Action Scanner
+        run: python dividend_action_scanner.py
+
+      # 2. Fast Trade Buka Pasar
       - name: Run Early Opening Scalp Scanner
         run: python early_scalp_scanner.py
 
-      # 2. Eksekusi Fast Trade Mid-Session
+      # 3. Fast Trade Pertengahan Sesi
       - name: Run Mid-Session Scalp Scanner
         run: python scalp_scanner.py
 
-      # 3. Eksekusi BTST Auto Scanner
+      # 4. BTST Auto Scanner Rutin
       - name: Run BTST Auto Scanner
         run: python auto_scanner.py
