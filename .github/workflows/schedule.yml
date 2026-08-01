@@ -2,17 +2,17 @@ name: Complete High-Precision Stockbit Radar Schedule
 
 on:
   schedule:
-    # 1. JAM 09:00 WIB (02:00 UTC) -> Radar Bursa Asia di Awal Pembukaan
+    # 1. JAM 09:00 WIB (02:00 UTC) -> Radar Bursa Asia & Komoditas Awal Pembukaan
     - cron: '0 2 * * 1-5'
     
     # 2. JAM 09:15 WIB (02:15 UTC) -> Radar IHSG 15 Menit Pertama & Sinyal Saham
     - cron: '15 2 * * 1-5'
 
-    # 3. Jadwal Rutin Jam Bursa Lainnya
-    - cron: '30 3 * * 1-5'  # 10:30 WIB (Sesi 1 Mid)
-    - cron: '30 4 * * 1-5'  # 11:30 WIB (Rest Sesi 1)
-    - cron: '30 7 * * 1-5'  # 14:30 WIB (Persiapan Closing/BTST)
-    - cron: '30 12 * * 1-5' # 19:30 WIB (Evaluasi Malam)
+    # 3. Jadwal Rutin Sesi Perdagangan Lainnya
+    - cron: '30 3 * * 1-5'  # 10:30 WIB (Mid Sesi 1)
+    - cron: '30 4 * * 1-5'  # 11:30 WIB (Rehat Sesi 1 / Bandar Accumulation)
+    - cron: '30 7 * * 1-5'  # 14:30 WIB (Persiapan Closing / BTST)
+    - cron: '30 12 * * 1-5' # 19:30 WIB (Evaluasi Harian / Malam)
 
   workflow_dispatch:
 
@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.10'
 
