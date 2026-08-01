@@ -1,17 +1,35 @@
-name: Auto Stockbit Scanner Schedule
+name: Auto Stockbit & Scalping Schedule
 
 on:
   schedule:
-    # 10:30 WIB (03:30 UTC) - Running Sesi 1 Pagi
+    # ----------------------------------------------------
+    # 🚨 FAST TRADE PASAR BUKA (EARLY MOMENTUM)
+    # ----------------------------------------------------
+    # Jam 09:20 WIB (02:20 UTC) - Radar Buka Pasar
+    - cron: '20 2 * * 1-5'
+
+    # ----------------------------------------------------
+    # ⚡ FAST TRADE / SCALPING MID-SESSION
+    # ----------------------------------------------------
+    # Jam 10:00 WIB (03:00 UTC) - Sesi 1 Ramai
+    - cron: '0 3 * * 1-5'
+    # Jam 13:45 WIB (06:45 UTC) - Sesi 2 Ramai
+    - cron: '45 6 * * 1-5'
+
+    # ----------------------------------------------------
+    # 📊 AUTO SCANNER BTST RUTIN
+    # ----------------------------------------------------
+    # Jam 10:30 WIB (03:30 UTC)
     - cron: '30 3 * * 1-5'
-    # 14:30 WIB (07:30 UTC) - Running Sesi 2 Sore
+    # Jam 14:30 WIB (07:30 UTC)
     - cron: '30 7 * * 1-5'
-    # 21:00 WIB (14:00 UTC) - Running Evaluasi BTST Malam
+    # Jam 21:00 WIB (14:00 UTC)
     - cron: '0 14 * * 1-5'
+
   workflow_dispatch:
 
 jobs:
-  run-scanner:
+  run-all-scanners:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -27,5 +45,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Auto Scanner
+      # 1. Eksekusi Radar Buka Pasar Pagi
+      - name: Run Early Opening Scalp Scanner
+        run: python early_scalp_scanner.py
+
+      # 2. Eksekusi Fast Trade Mid-Session
+      - name: Run Mid-Session Scalp Scanner
+        run: python scalp_scanner.py
+
+      # 3. Eksekusi BTST Auto Scanner
+      - name: Run BTST Auto Scanner
         run: python auto_scanner.py
