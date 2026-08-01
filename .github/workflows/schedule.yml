@@ -1,4 +1,4 @@
-name: Auto Stockbit, Scalping, Dividend & Reversal Schedule
+name: Complete Stockbit Trading Radar Schedule
 
 on:
   schedule:
@@ -23,11 +23,19 @@ on:
     - cron: '45 6 * * 1-5'
 
     # ----------------------------------------------------
+    # 🕵️‍♂️ BANDAR SILENT ACCUMULATION RADAR
+    # ----------------------------------------------------
+    # Jam 11:30 WIB (04:30 UTC) - Akhir Sesi 1
+    - cron: '30 4 * * 1-5'
+    # Jam 19:30 WIB (12:30 UTC) - Evaluasi Malam
+    - cron: '30 12 * * 1-5'
+
+    # ----------------------------------------------------
     # 📉 OVERSOLD & BULLISH REVERSAL RADAR (JENUH JUAL)
     # ----------------------------------------------------
-    # Jam 12:15 WIB (05:15 UTC) - Istirahat Sesi 1
+    # Jam 12:15 WIB (05:15 UTC)
     - cron: '15 5 * * 1-5'
-    # Jam 18:00 WIB (11:00 UTC) - Evaluasi Sore
+    # Jam 18:00 WIB (11:00 UTC)
     - cron: '0 11 * * 1-5'
 
     # ----------------------------------------------------
@@ -71,10 +79,14 @@ jobs:
       - name: Run Mid-Session Scalp Scanner
         run: python scalp_scanner.py
 
-      # 4. Radar Jenuh Jual / Reversal
+      # 4. Radar Akumulasi Bandar
+      - name: Run Bandar Accumulation Scanner
+        run: python bandar_accumulation_scanner.py
+
+      # 5. Radar Jenuh Jual / Reversal
       - name: Run Oversold Reversal Scanner
         run: python oversold_reversal_scanner.py
 
-      # 5. BTST Auto Scanner Rutin
+      # 6. BTST Auto Scanner Rutin
       - name: Run BTST Auto Scanner
         run: python auto_scanner.py
