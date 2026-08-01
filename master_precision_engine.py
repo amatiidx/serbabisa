@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import requests
-import datetime
+from datetime import datetime, timezone, timedelta
 import io
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -31,7 +31,6 @@ def get_all_bei_tickers():
     except Exception as e:
         print(f"⚠️ Gagal mengambil daftar dinamis BEI ({e}). Menggunakan daftar cadangan.")
     
-    # Fallback jika terjadi kendala pada server data
     return [
         "BBCA", "BBRI", "BMRI", "BBNI", "TLKM", "ASII", "AMRT", "ANTM", "ADRO", "AKRA",
         "AMMN", "ARTO", "AUTO", "BBTN", "BRPT", "BUMI", "BUKA", "CPIN", "CUAN", "DOOH",
@@ -129,7 +128,6 @@ def analyze_high_precision_stock(ticker, ihsg_status):
         rsi = float(latest['RSI'])
 
         turnover = price * volume
-        # Filter Likuiditas: Hanya memproses saham dengan transaksi aktif >= Rp 3 Miliar
         if turnover < 3_000_000_000:
             return None
 
@@ -185,22 +183,20 @@ def analyze_high_precision_stock(ticker, ihsg_status):
         return None
 
 def run_precision_scan():
-    now_str = datetime.datetime.now().strftime("%d-%m-%Y %H:%M WIB")
+    # Mengunci Jam Presisi ke Waktu Indonesia Barat (WIB = UTC+7)
+    wib_tz = timezone(timedelta(hours=7))
+    now_str = datetime.now(wib_tz).strftime("%d-%m-%Y %H:%M WIB")
     
-    # 1. Ambil Seluruh Daftar Saham BEI Secara Dinamis
     bei_targets = get_all_bei_tickers()
     
-    # 2. Cek Tren Bursa Asia & BEI
     _, nikkei_msg, _ = check_market_index("^N225", "NIKKEI 225", "🇯🇵")
     _, kospi_msg, _ = check_market_index("^KS11", "KOSPI", "🇰🇷")
     _, hsi_msg, _ = check_market_index("^HSI", "HANG SENG", "🇭🇰")
     ihsg_status, ihsg_msg, _ = check_market_index("^JKSE", "IHSG BEI", "🇮🇩")
     
-    # 3. Cek Komoditas Global
     comm_msgs, comm_signals = scan_global_commodities()
     
     results = []
-    # Menggunakan Multi-threading dengan 20 Workers agar pemindaian seluruh saham BEI berjalan cepat
     with ThreadPoolExecutor(max_workers=20) as executor:
         futures = {executor.submit(analyze_high_precision_stock, t, ihsg_status): t for t in bei_targets}
         for future in as_completed(futures):
@@ -228,7 +224,6 @@ def run_precision_scan():
         df = pd.DataFrame(results).sort_values(by=["score", "turnover"], ascending=[False, False])
         tg_msg += f"⚡ *SETUP SAHAM BEI KONFIRMASI KUAT ({len(df)} Saham Terdeteksi):*\n\n"
 
-        # Tampilkan hingga 5 saham teratas hasil filter dari seluruh bursa
         for _, row in df.head(5).iterrows():
             tg_msg += f"💎 *{row['ticker']}* 🔥 [CONFIRM SCORE: {row['score']}%]\n"
             tg_msg += f"• *Harga Last:* Rp {row['price']:,} (+{row['change_pct']}%)\n"
