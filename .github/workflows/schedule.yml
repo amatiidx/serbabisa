@@ -2,23 +2,17 @@ name: Complete High-Precision Stockbit Radar Schedule
 
 on:
   schedule:
-    # 🎁 DIVIDEND & CORPORATE ACTION RADAR (08:30 WIB)
-    - cron: '30 1 * * 1-5'
-    # 🚨 FAST TRADE PASAR BUKA (09:20 WIB)
-    - cron: '20 2 * * 1-5'
-    # ⚡ FAST TRADE MID-SESSION (10:00 & 13:45 WIB)
-    - cron: '0 3 * * 1-5'
-    - cron: '45 6 * * 1-5'
-    # 🕵️‍♂️ BANDAR SILENT ACCUMULATION RADAR (11:30 & 19:30 WIB)
-    - cron: '30 4 * * 1-5'
-    - cron: '30 12 * * 1-5'
-    # 📉 OVERSOLD & BULLISH REVERSAL RADAR (12:15 & 18:00 WIB)
-    - cron: '15 5 * * 1-5'
-    - cron: '0 11 * * 1-5'
-    # 💎 MASTER PRECISION SCANNER & BTST (10:30, 14:30 & 21:00 WIB)
-    - cron: '30 3 * * 1-5'
-    - cron: '30 7 * * 1-5'
-    - cron: '0 14 * * 1-5'
+    # 1. JAM 09:00 WIB (02:00 UTC) -> Radar Bursa Asia di Awal Pembukaan
+    - cron: '0 2 * * 1-5'
+    
+    # 2. JAM 09:15 WIB (02:15 UTC) -> Radar IHSG 15 Menit Pertama & Sinyal Saham
+    - cron: '15 2 * * 1-5'
+
+    # 3. Jadwal Rutin Jam Bursa Lainnya
+    - cron: '30 3 * * 1-5'  # 10:30 WIB (Sesi 1 Mid)
+    - cron: '30 4 * * 1-5'  # 11:30 WIB (Rest Sesi 1)
+    - cron: '30 7 * * 1-5'  # 14:30 WIB (Persiapan Closing/BTST)
+    - cron: '30 12 * * 1-5' # 19:30 WIB (Evaluasi Malam)
 
   workflow_dispatch:
 
@@ -26,37 +20,18 @@ jobs:
   run-all-scanners:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install pandas numpy yfinance requests
 
-      # Eksekusi Skrip (Aman jika ada file yang belum sempat dibuat)
       - name: Run Master Precision Engine
-        run: test -f master_precision_engine.py && python master_precision_engine.py || echo "File master_precision_engine.py tidak ditemukan, dilewati."
-
-      - name: Run Dividend & Action Scanner
-        run: test -f dividend_action_scanner.py && python dividend_action_scanner.py || echo "File dividend_action_scanner.py tidak ditemukan, dilewati."
-
-      - name: Run Early Opening Scalp Scanner
-        run: test -f early_scalp_scanner.py && python early_scalp_scanner.py || echo "File early_scalp_scanner.py tidak ditemukan, dilewati."
-
-      - name: Run Mid-Session Scalp Scanner
-        run: test -f scalp_scanner.py && python scalp_scanner.py || echo "File scalp_scanner.py tidak ditemukan, dilewati."
-
-      - name: Run Bandar Accumulation Scanner
-        run: test -f bandar_accumulation_scanner.py && python bandar_accumulation_scanner.py || echo "File bandar_accumulation_scanner.py tidak ditemukan, dilewati."
-
-      - name: Run Oversold Reversal Scanner
-        run: test -f oversold_reversal_scanner.py && python oversold_reversal_scanner.py || echo "File oversold_reversal_scanner.py tidak ditemukan, dilewati."
-
-      - name: Run BTST Auto Scanner
-        run: test -f auto_scanner.py && python auto_scanner.py || echo "File auto_scanner.py tidak ditemukan, dilewati."
+        run: python master_precision_engine.py
