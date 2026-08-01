@@ -3,20 +3,12 @@ import numpy as np
 import yfinance as yf
 import requests
 import datetime
+import io
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Konfigurasi Bot / Channel Telegram
 TELEGRAM_TOKEN = "8784775406:AAFJRPUyDEbGHGm7tvkVq0epdLczjOyQn0E"
-TELEGRAM_CHAT_ID = "347896274"  # Masukkan ID Channel / Group Anda
-
-BEI_TARGETS = [
-    "BBCA", "BBRI", "BMRI", "BBNI", "TLKM", "ASII", "AMRT", "ANTM", "ADRO", "AKRA",
-    "AMMN", "ARTO", "AUTO", "BBTN", "BRPT", "BUMI", "BUKA", "CPIN", "CUAN", "DOOH",
-    "EMTK", "ENRG", "EXCL", "GOTO", "HRUM", "ICBP", "INDF", "INKP", "INET", "ISAT",
-    "ITMG", "KLBF", "MDKA", "MEDC", "MYOR", "NCKL", "PGAS", "PGEO", "PTBA", "RAJA",
-    "SIDO", "SMGR", "SRTG", "TBIG", "TPIA", "TOWR", "UNTR", "UNVR", "PANI", "CDIA",
-    "BSDE", "CTRA", "CMRY", "MBMA", "ADMR", "BRMS", "NSSS", "MIKA", "ACES", "MAPI"
-]
+TELEGRAM_CHAT_ID = "347896274"  # Masukkan Username Channel (@channelanda) atau ID Group Anda
 
 COMMODITIES_MAP = {
     "GC=F": {"name": "Emas Global (Gold)", "icon": "🏆", "stocks": "ANTM, MDKA, PSAB, BRMS"},
@@ -24,6 +16,30 @@ COMMODITIES_MAP = {
     "HG=F": {"name": "Tembaga (Copper)", "icon": "🧱", "stocks": "AMMN, MDKA"},
     "NCF=F": {"name": "Batu Bara (Coal)", "icon": "⬛", "stocks": "ADRO, PTBA, ITMG, HRUM, BUMI"}
 }
+
+def get_all_bei_tickers():
+    """ Mengambil seluruh daftar saham terdaftar di BEI secara dinamis """
+    try:
+        url = "https://raw.githubusercontent.com/datasets/line-of-business/master/data/idx_companies.csv"
+        s = requests.get(url, timeout=10).content
+        df_idx = pd.read_csv(io.StringIO(s.decode('utf-8')))
+        tickers = df_idx['Ticker'].dropna().unique().tolist()
+        clean_tickers = [t.strip().upper() for t in tickers if len(t.strip()) == 4]
+        if clean_tickers:
+            print(f"✅ Berhasil mengambil {len(clean_tickers)} saham dari BEI.")
+            return clean_tickers
+    except Exception as e:
+        print(f"⚠️ Gagal mengambil daftar dinamis BEI ({e}). Menggunakan daftar cadangan.")
+    
+    # Fallback jika terjadi kendala pada server data
+    return [
+        "BBCA", "BBRI", "BMRI", "BBNI", "TLKM", "ASII", "AMRT", "ANTM", "ADRO", "AKRA",
+        "AMMN", "ARTO", "AUTO", "BBTN", "BRPT", "BUMI", "BUKA", "CPIN", "CUAN", "DOOH",
+        "EMTK", "ENRG", "EXCL", "GOTO", "HRUM", "ICBP", "INDF", "INKP", "INET", "ISAT",
+        "ITMG", "KLBF", "MDKA", "MEDC", "MYOR", "NCKL", "PGAS", "PGEO", "PTBA", "RAJA",
+        "SIDO", "SMGR", "SRTG", "TBIG", "TPIA", "TOWR", "UNTR", "UNVR", "PANI", "CDIA",
+        "BSDE", "CTRA", "CMRY", "MBMA", "ADMR", "BRMS", "NSSS", "MIKA", "ACES", "MAPI"
+    ]
 
 def check_market_index(ticker, name, flag):
     """ Memeriksa tren Indeks Pasar Asia & BEI """
@@ -113,7 +129,8 @@ def analyze_high_precision_stock(ticker, ihsg_status):
         rsi = float(latest['RSI'])
 
         turnover = price * volume
-        if turnover < 5_000_000_000:
+        # Filter Likuiditas: Hanya memproses saham dengan transaksi aktif >= Rp 3 Miliar
+        if turnover < 3_000_000_000:
             return None
 
         change_pct = round(((price - prev_close) / prev_close) * 100, 2)
@@ -161,7 +178,7 @@ def analyze_high_precision_stock(ticker, ihsg_status):
                 "tp1": tp1,
                 "tp2": tp2,
                 "sl": sl,
-                "turnover": int(turnover / 1_000_000_000)
+                "turnover": round(turnover / 1_000_000_000, 1)
             }
         return None
     except Exception:
@@ -170,18 +187,22 @@ def analyze_high_precision_stock(ticker, ihsg_status):
 def run_precision_scan():
     now_str = datetime.datetime.now().strftime("%d-%m-%Y %H:%M WIB")
     
-    # 1. Cek Tren Bursa Asia & BEI
+    # 1. Ambil Seluruh Daftar Saham BEI Secara Dinamis
+    bei_targets = get_all_bei_tickers()
+    
+    # 2. Cek Tren Bursa Asia & BEI
     _, nikkei_msg, _ = check_market_index("^N225", "NIKKEI 225", "🇯🇵")
     _, kospi_msg, _ = check_market_index("^KS11", "KOSPI", "🇰🇷")
     _, hsi_msg, _ = check_market_index("^HSI", "HANG SENG", "🇭🇰")
     ihsg_status, ihsg_msg, _ = check_market_index("^JKSE", "IHSG BEI", "🇮🇩")
     
-    # 2. Cek Komoditas Global
+    # 3. Cek Komoditas Global
     comm_msgs, comm_signals = scan_global_commodities()
     
     results = []
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(analyze_high_precision_stock, t, ihsg_status): t for t in BEI_TARGETS}
+    # Menggunakan Multi-threading dengan 20 Workers agar pemindaian seluruh saham BEI berjalan cepat
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        futures = {executor.submit(analyze_high_precision_stock, t, ihsg_status): t for t in bei_targets}
         for future in as_completed(futures):
             res = future.result()
             if res:
@@ -204,10 +225,11 @@ def run_precision_scan():
     if not results:
         tg_msg += "ℹ️ _Tidak ada saham yang memenuhi kriteria konfirmasi tinggi saat ini._"
     else:
-        df = pd.DataFrame(results).sort_values(by="score", ascending=False)
-        tg_msg += f"⚡ *SETUP SAHAM BEI KONFIRMASI KUAT:*\n\n"
+        df = pd.DataFrame(results).sort_values(by=["score", "turnover"], ascending=[False, False])
+        tg_msg += f"⚡ *SETUP SAHAM BEI KONFIRMASI KUAT ({len(df)} Saham Terdeteksi):*\n\n"
 
-        for _, row in df.head(3).iterrows():
+        # Tampilkan hingga 5 saham teratas hasil filter dari seluruh bursa
+        for _, row in df.head(5).iterrows():
             tg_msg += f"💎 *{row['ticker']}* 🔥 [CONFIRM SCORE: {row['score']}%]\n"
             tg_msg += f"• *Harga Last:* Rp {row['price']:,} (+{row['change_pct']}%)\n"
             tg_msg += f"• *Turnover:* Rp {row['turnover']} Miliar\n"
