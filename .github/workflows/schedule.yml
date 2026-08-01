@@ -1,4 +1,4 @@
-name: Complete Stockbit Trading Radar Schedule
+name: Complete High-Precision Stockbit Radar Schedule
 
 on:
   schedule:
@@ -25,9 +25,9 @@ on:
     # ----------------------------------------------------
     # 🕵️‍♂️ BANDAR SILENT ACCUMULATION RADAR
     # ----------------------------------------------------
-    # Jam 11:30 WIB (04:30 UTC) - Akhir Sesi 1
+    # Jam 11:30 WIB (04:30 UTC)
     - cron: '30 4 * * 1-5'
-    # Jam 19:30 WIB (12:30 UTC) - Evaluasi Malam
+    # Jam 19:30 WIB (12:30 UTC)
     - cron: '30 12 * * 1-5'
 
     # ----------------------------------------------------
@@ -39,7 +39,7 @@ on:
     - cron: '0 11 * * 1-5'
 
     # ----------------------------------------------------
-    # 📊 AUTO SCANNER BTST RUTIN
+    # 💎 MASTER PRECISION SCANNER (HIGH WIN-RATE) & BTST
     # ----------------------------------------------------
     # Jam 10:30 WIB (03:30 UTC)
     - cron: '30 3 * * 1-5'
@@ -67,26 +67,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 1. Radar Dividen & Aksi Korporasi
+      # 1. Master Precision Engine (High Win-Rate)
+      - name: Run Master Precision Engine
+        run: python master_precision_engine.py
+
+      # 2. Radar Dividen & Aksi Korporasi
       - name: Run Dividend & Action Scanner
         run: python dividend_action_scanner.py
 
-      # 2. Fast Trade Buka Pasar
+      # 3. Fast Trade Buka Pasar
       - name: Run Early Opening Scalp Scanner
         run: python early_scalp_scanner.py
 
-      # 3. Fast Trade Pertengahan Sesi
+      # 4. Fast Trade Mid-Session
       - name: Run Mid-Session Scalp Scanner
         run: python scalp_scanner.py
 
-      # 4. Radar Akumulasi Bandar
+      # 5. Radar Akumulasi Bandar
       - name: Run Bandar Accumulation Scanner
         run: python bandar_accumulation_scanner.py
 
-      # 5. Radar Jenuh Jual / Reversal
+      # 6. Radar Jenuh Jual / Reversal
       - name: Run Oversold Reversal Scanner
         run: python oversold_reversal_scanner.py
 
-      # 6. BTST Auto Scanner Rutin
+      # 7. BTST Auto Scanner Rutin
       - name: Run BTST Auto Scanner
         run: python auto_scanner.py
