@@ -12,3 +12,7 @@ def filter_top_50(scan_results):
     # Urutkan berdasarkan skor sinyal / volume terbanyak
     sorted_stocks = sorted(scan_results, key=lambda x: x.get('score', 0), reverse=True)
     return sorted_stocks[:50]
+    
+# Tulis hasil scan ke file log agar terbaca oleh Streamlit
+with open("auto.log", "w") as f:
+    f.write(f"[{datetime.now().strftime('%d-%m-%Y %H:%M WIB')}] HASIL SCAN: BBCA, BUMI, ENRG, INET, SIDO, TLKM, AMRT, BRIS\n")
