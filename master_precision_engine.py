@@ -4,33 +4,46 @@ import yfinance as yf
 import requests
 from datetime import datetime, timezone, timedelta
 import io
+import os
+import mplfinance as mpf
+import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Konfigurasi Bot / Channel Telegram
 TELEGRAM_TOKEN = "8784775406:AAFJRPUyDEbGHGm7tvkVq0epdLczjOyQn0E"
-TELEGRAM_CHAT_ID = "347896274"  # Masukkan Username Channel (@channelanda) atau ID Group Anda
+TELEGRAM_CHAT_ID = "347896274"
 
 COMMODITIES_MAP = {
     "GC=F": {"name": "Emas Global (Gold)", "icon": "🏆", "stocks": "ANTM, MDKA, PSAB, BRMS"},
     "CL=F": {"name": "Minyak Mentah (WTI)", "icon": "🛢️", "stocks": "MEDC, ENRG, PGAS, AKRA"},
     "HG=F": {"name": "Tembaga (Copper)", "icon": "🧱", "stocks": "AMMN, MDKA"},
-    "NCF=F": {"name": "Batu Bara (Coal)", "icon": "⬛", "stocks": "ADRO, PTBA, ITMG, HRUM, BUMI"}
+    "MTF=F": {"name": "Batu Bara (Coal)", "icon": "⬛", "stocks": "ADRO, PTBA, ITMG, HRUM, BUMI"}
 }
 
 def get_all_bei_tickers():
-    """ Mengambil seluruh daftar saham terdaftar di BEI secara dinamis """
+    """ Mengambil seluruh daftar saham BEI dengan fallback mutakhir """
     try:
-        url = "https://raw.githubusercontent.com/datasets/line-of-business/master/data/idx_companies.csv"
+        url = "https://raw.githubusercontent.com/harga-saham/idx-stocks/main/data/idx_companies.csv"
         s = requests.get(url, timeout=10).content
         df_idx = pd.read_csv(io.StringIO(s.decode('utf-8')))
-        tickers = df_idx['Ticker'].dropna().unique().tolist()
-        clean_tickers = [t.strip().upper() for t in tickers if len(t.strip()) == 4]
-        if clean_tickers:
-            print(f"✅ Berhasil mengambil {len(clean_tickers)} saham dari BEI.")
-            return clean_tickers
+        
+        # Deteksi otomatis nama kolom ticker yang tersedia
+        col_name = None
+        for col in ['Ticker', 'ticker', 'Kode', 'kode', 'Symbol', 'symbol']:
+            if col in df_idx.columns:
+                col_name = col
+                break
+                
+        if col_name:
+            tickers = df_idx[col_name].dropna().unique().tolist()
+            clean_tickers = [str(t).strip().upper() for t in tickers if len(str(t).strip()) == 4]
+            if clean_tickers:
+                print(f"✅ Berhasil mengambil {len(clean_tickers)} saham dari BEI.")
+                return clean_tickers
     except Exception as e:
         print(f"⚠️ Gagal mengambil daftar dinamis BEI ({e}). Menggunakan daftar cadangan.")
     
+    # Fallback daftar saham aktif likuiditas tinggi jika server data eksternal mati
     return [
         "BBCA", "BBRI", "BMRI", "BBNI", "TLKM", "ASII", "AMRT", "ANTM", "ADRO", "AKRA",
         "AMMN", "ARTO", "AUTO", "BBTN", "BRPT", "BUMI", "BUKA", "CPIN", "CUAN", "DOOH",
@@ -41,7 +54,6 @@ def get_all_bei_tickers():
     ]
 
 def check_market_index(ticker, name, flag):
-    """ Memeriksa tren Indeks Pasar Asia & BEI """
     try:
         idx = yf.Ticker(ticker)
         df_idx = idx.history(period="3mo")
@@ -57,7 +69,6 @@ def check_market_index(ticker, name, flag):
         ma20 = float(latest['MA20'])
 
         change_pct = round(((close - prev_close) / prev_close) * 100, 2)
-
         status = "BULLISH" if close >= ma20 else "BEARISH"
         symbol = "🟢" if status == "BULLISH" else "🔴"
         sign = "+" if change_pct >= 0 else ""
@@ -68,10 +79,7 @@ def check_market_index(ticker, name, flag):
         return "UNKNOWN", f"{flag} *{name}:* Gagal Membaca Data", 0.0
 
 def scan_global_commodities():
-    """ Memeriksa pergerakan komoditas global & memberikan rekomendasi saham BEI """
-    comm_msgs = []
-    signals = []
-    
+    comm_msgs, signals = [], []
     for ticker, info in COMMODITIES_MAP.items():
         try:
             comm = yf.Ticker(ticker)
@@ -85,14 +93,12 @@ def scan_global_commodities():
                 
                 sign = "+" if change_pct >= 0 else ""
                 icon_status = "🔥" if change_pct >= 1.0 else ("🔻" if change_pct <= -1.0 else "➖")
-                
                 comm_msgs.append(f"• {info['icon']} *{info['name']}:* ${price:,.2f} ({sign}{change_pct}%) {icon_status}")
                 
                 if change_pct >= 0.8:
                     signals.append(f"👉 *{info['name']}* MENGUAT ({sign}{change_pct}%)\n   _Pantau Saham:_ *{info['stocks']}*")
         except Exception:
             continue
-            
     return comm_msgs, signals
 
 def calculate_rsi(series, period=14):
@@ -101,6 +107,40 @@ def calculate_rsi(series, period=14):
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     rs = gain / max(loss, 1e-9)
     return round(100 - (100 / (1 + rs)), 2)
+
+def generate_stock_chart(ticker, df_hist, tp1, sl):
+    try:
+        df = df_hist.tail(40).copy()
+        df['MA20'] = df['Close'].rolling(20).mean()
+        df['MA50'] = df['Close'].rolling(50).mean()
+        df['RSI'] = calculate_rsi(df['Close'], 14)
+
+        apdict = [
+            mpf.make_addplot(df['MA20'], color='blue', width=1.2),
+            mpf.make_addplot(df['MA50'], color='orange', width=1.2),
+            mpf.make_addplot(df['RSI'], panel=2, color='purple', ylabel='RSI')
+        ]
+
+        filename = f"{ticker}_chart.png"
+        h_lines = dict(hlines=[tp1, sl], colors=['g', 'r'], linestyle='--', linewidths=1)
+
+        mpf.plot(
+            df,
+            type='candle',
+            style='charles',
+            title=f"\nChart Teknikal: {ticker}",
+            ylabel='Harga (IDR)',
+            volume=True,
+            ylabel_lower='Vol',
+            addplot=apdict,
+            hlines=h_lines,
+            savefig=filename,
+            figscale=1.2
+        )
+        return filename
+    except Exception as e:
+        print(f"Gagal buat chart {ticker}: {e}")
+        return None
 
 def analyze_high_precision_stock(ticker, ihsg_status):
     try:
@@ -143,22 +183,22 @@ def analyze_high_precision_stock(ticker, ihsg_status):
 
         if is_uptrend:
             accuracy_score += 30
-            reasons.append("Uptrend Structure")
+            reasons.append("Uptrend")
 
         if vol_ratio >= 1.5:
             accuracy_score += 30
-            reasons.append(f"Volume Spike {vol_ratio}x")
+            reasons.append(f"Vol Spike {vol_ratio}x")
         elif vol_ratio >= 1.2:
             accuracy_score += 20
             reasons.append(f"Vol {vol_ratio}x")
 
         if close_location >= 70:
             accuracy_score += 20
-            reasons.append("Strong Buying Close")
+            reasons.append("Strong Close")
 
         if 45 <= rsi <= 65:
             accuracy_score += 20
-            reasons.append(f"Ideal RSI ({rsi})")
+            reasons.append(f"RSI {rsi}")
 
         min_score = 80 if ihsg_status == "BEARISH" else 75
 
@@ -167,8 +207,11 @@ def analyze_high_precision_stock(ticker, ihsg_status):
             tp2 = int(price * 1.050)
             sl = int(price * 0.985)
 
+            raw_ticker = clean_ticker.replace(".JK", "")
+            chart_file = generate_stock_chart(raw_ticker, df_hist, tp1, sl)
+
             return {
-                "ticker": clean_ticker.replace(".JK", ""),
+                "ticker": raw_ticker,
                 "price": int(price),
                 "change_pct": change_pct,
                 "score": accuracy_score,
@@ -176,14 +219,22 @@ def analyze_high_precision_stock(ticker, ihsg_status):
                 "tp1": tp1,
                 "tp2": tp2,
                 "sl": sl,
-                "turnover": round(turnover / 1_000_000_000, 1)
+                "turnover": round(turnover / 1_000_000_000, 1),
+                "chart_file": chart_file
             }
         return None
     except Exception:
         return None
 
+def send_telegram_photo(photo_path, caption):
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
+        with open(photo_path, 'rb') as photo:
+            requests.post(url, data={'chat_id': TELEGRAM_CHAT_ID, 'caption': caption, 'parse_mode': 'Markdown'}, files={'photo': photo}, timeout=20)
+    except Exception as e:
+        print(f"Gagal kirim foto Telegram: {e}")
+
 def run_precision_scan():
-    # Mengunci Jam Presisi ke Waktu Indonesia Barat (WIB = UTC+7)
     wib_tz = timezone(timedelta(hours=7))
     now_str = datetime.now(wib_tz).strftime("%d-%m-%Y %H:%M WIB")
     
@@ -197,7 +248,7 @@ def run_precision_scan():
     comm_msgs, comm_signals = scan_global_commodities()
     
     results = []
-    with ThreadPoolExecutor(max_workers=20) as executor:
+    with ThreadPoolExecutor(max_workers=15) as executor:
         futures = {executor.submit(analyze_high_precision_stock, t, ihsg_status): t for t in bei_targets}
         for future in as_completed(futures):
             res = future.result()
@@ -206,37 +257,31 @@ def run_precision_scan():
 
     tg_msg = f"🎯 *MASTER PRECISION & GLOBAL RADAR*\n"
     tg_msg += f"📅 _Waktu Scan: {now_str}_\n\n"
-    
-    tg_msg += f"🌍 *RADAR BURSA ASIA & BEI:*\n"
-    tg_msg += f"• {nikkei_msg}\n• {kospi_msg}\n• {hsi_msg}\n• {ihsg_msg}\n\n"
+    tg_msg += f"🌍 *RADAR BURSA ASIA & BEI:*\n• {nikkei_msg}\n• {kospi_msg}\n• {hsi_msg}\n• {ihsg_msg}\n\n"
 
     if comm_msgs:
-        tg_msg += f"🛢️ *HARGA KOMODITAS GLOBAL:*\n"
-        tg_msg += "\n".join(comm_msgs) + "\n\n"
+        tg_msg += f"🛢️ *HARGA KOMODITAS GLOBAL:*\n" + "\n".join(comm_msgs) + "\n\n"
 
     if comm_signals:
-        tg_msg += f"💡 *SINYAL SEKTOR POTENSIAL (EFEK KOMODITAS):*\n"
-        tg_msg += "\n".join(comm_signals) + "\n\n"
+        tg_msg += f"💡 *SINYAL SEKTOR POTENSIAL:*\n" + "\n".join(comm_signals) + "\n\n"
 
-    if not results:
-        tg_msg += "ℹ️ _Tidak ada saham yang memenuhi kriteria konfirmasi tinggi saat ini._"
-    else:
+    url_text = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    requests.post(url_text, json={"chat_id": TELEGRAM_CHAT_ID, "text": tg_msg, "parse_mode": "Markdown"}, timeout=15)
+
+    if results:
         df = pd.DataFrame(results).sort_values(by=["score", "turnover"], ascending=[False, False])
-        tg_msg += f"⚡ *SETUP SAHAM BEI KONFIRMASI KUAT ({len(df)} Saham Terdeteksi):*\n\n"
-
-        for _, row in df.head(5).iterrows():
-            tg_msg += f"💎 *{row['ticker']}* 🔥 [CONFIRM SCORE: {row['score']}%]\n"
-            tg_msg += f"• *Harga Last:* Rp {row['price']:,} (+{row['change_pct']}%)\n"
-            tg_msg += f"• *Turnover:* Rp {row['turnover']} Miliar\n"
-            tg_msg += f"• *Konfirmasi:* _{row['reasons']}_\n"
-            tg_msg += f"🎯 *Target TP1:* Rp {row['tp1']:,} (+2.5%)\n"
-            tg_msg += f"🎯 *Target TP2:* Rp {row['tp2']:,} (+5.0%)\n"
-            tg_msg += f"🛡️ *Stop Loss:* Rp {row['sl']:,} (-1.5%)\n\n"
-
-    tg_msg += "⚠️ _Disiplin Eksekusi TP & SL. Utamakan Money Management!_"
-
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": tg_msg, "parse_mode": "Markdown"}, timeout=15)
+        for _, row in df.head(3).iterrows():
+            caption = (
+                f"💎 *CHART TEKNIKAL: {row['ticker']}* 🔥 [SCORE: {row['score']}%]\n"
+                f"• *Harga Last:* Rp {row['price']:,} (+{row['change_pct']}%)\n"
+                f"• *Turnover:* Rp {row['turnover']} Miliar\n"
+                f"• *Konfirmasi:* _{row['reasons']}_\n"
+                f"🎯 *TP1:* Rp {row['tp1']:,} (+2.5%) | *TP2:* Rp {row['tp2']:,} (+5%)\n"
+                f"🛡️ *SL:* Rp {row['sl']:,} (-1.5%)"
+            )
+            if row['chart_file'] and os.path.exists(row['chart_file']):
+                send_telegram_photo(row['chart_file'], caption)
+                os.remove(row['chart_file'])
 
 if __name__ == "__main__":
     run_precision_scan()
