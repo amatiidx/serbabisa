@@ -17,17 +17,16 @@ COMMODITIES_MAP = {
     "GC=F": {"name": "Emas Global (Gold)", "icon": "🏆", "stocks": "ANTM, MDKA, PSAB, BRMS"},
     "CL=F": {"name": "Minyak Mentah (WTI)", "icon": "🛢️", "stocks": "MEDC, ENRG, PGAS, AKRA"},
     "HG=F": {"name": "Tembaga (Copper)", "icon": "🧱", "stocks": "AMMN, MDKA"},
-    "MTF=F": {"name": "Batu Bara (Coal)", "icon": "⬛", "stocks": "ADRO, PTBA, ITMG, HRUM, BUMI"}
+    "ADRO.JK": {"name": "Sektor Batu Bara (Acuan ADRO)", "icon": "⬛", "stocks": "ADRO, PTBA, ITMG, HRUM, BUMI"}
 }
 
 def get_all_bei_tickers():
-    """ Mengambil seluruh daftar saham BEI dengan fallback mutakhir """
+    """ Mengambil seluruh daftar saham BEI secara dinamis """
     try:
         url = "https://raw.githubusercontent.com/harga-saham/idx-stocks/main/data/idx_companies.csv"
         s = requests.get(url, timeout=10).content
         df_idx = pd.read_csv(io.StringIO(s.decode('utf-8')))
         
-        # Deteksi otomatis nama kolom ticker yang tersedia
         col_name = None
         for col in ['Ticker', 'ticker', 'Kode', 'kode', 'Symbol', 'symbol']:
             if col in df_idx.columns:
@@ -43,7 +42,6 @@ def get_all_bei_tickers():
     except Exception as e:
         print(f"⚠️ Gagal mengambil daftar dinamis BEI ({e}). Menggunakan daftar cadangan.")
     
-    # Fallback daftar saham aktif likuiditas tinggi jika server data eksternal mati
     return [
         "BBCA", "BBRI", "BMRI", "BBNI", "TLKM", "ASII", "AMRT", "ANTM", "ADRO", "AKRA",
         "AMMN", "ARTO", "AUTO", "BBTN", "BRPT", "BUMI", "BUKA", "CPIN", "CUAN", "DOOH",
@@ -93,7 +91,9 @@ def scan_global_commodities():
                 
                 sign = "+" if change_pct >= 0 else ""
                 icon_status = "🔥" if change_pct >= 1.0 else ("🔻" if change_pct <= -1.0 else "➖")
-                comm_msgs.append(f"• {info['icon']} *{info['name']}:* ${price:,.2f} ({sign}{change_pct}%) {icon_status}")
+                
+                price_fmt = f"Rp {int(price):,}" if ".JK" in ticker else f"${price:,.2f}"
+                comm_msgs.append(f"• {info['icon']} *{info['name']}:* {price_fmt} ({sign}{change_pct}%) {icon_status}")
                 
                 if change_pct >= 0.8:
                     signals.append(f"👉 *{info['name']}* MENGUAT ({sign}{change_pct}%)\n   _Pantau Saham:_ *{info['stocks']}*")
