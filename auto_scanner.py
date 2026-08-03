@@ -17,3 +17,6 @@ def filter_top_50(scan_results):
 # Tulis hasil scan ke file log agar terbaca oleh Streamlit
 with open("auto.log", "w") as f:
     f.write(f"[{datetime.now().strftime('%d-%m-%Y %H:%M WIB')}] HASIL SCAN: BBCA, BUMI, ENRG, INET, SIDO, TLKM, AMRT, BRIS\n")
+# Tulis ulang pesan ke auto.log agar sama persis dengan Telegram
+with open("auto.log", "w") as f:
+    f.write(message)
