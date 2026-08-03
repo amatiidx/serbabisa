@@ -12,7 +12,7 @@ except ImportError:
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(
-    page_title="Stockbit Pro - Scanner Terminal",
+    page_title="DETECTIVE SAHAM SERBABISA",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -75,7 +75,7 @@ def parse_scanner_output(filename):
 
 # --- SIDEBAR WATCHLIST & CONTROL ---
 with st.sidebar:
-    st.markdown("## 📈 **STOCKBIT TERMINAL**")
+    st.markdown("## 📈 **DETECTIVE SAHAM SERBABISA**")
     st.caption("IDX Realtime Scanner Dashboard")
     st.divider()
 
