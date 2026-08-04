@@ -1,77 +1,88 @@
-from datetime import datetime
-import pandas as pd
+import sys
+import requests
 import yfinance as yf
-import concurrent.futures
 
-# 1. Ambil Seluruh Daftar Ticker IHSG
-def get_all_idx_tickers():
+BOT_TOKEN = "8784775406:AAG815Z3eeg4g5Aihrxiwu2fjbIZbe_qCII"
+CHAT_ID = "347896274"
+
+def send_telegram(message):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": message,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True
+    }
     try:
-        url = "https://raw.githubusercontent.com/datasets/investing-idx/main/data/stock-list.csv"
-        df = pd.read_csv(url)
-        return [f"{code}.JK" for code in df['Code']]
-    except Exception:
-        # Ticker fallback jika internet/github dataset gagal
-        return ["BBCA.JK", "BBRI.JK", "BMRI.JK", "TLKM.JK", "BUMI.JK", "ENRG.JK", "INET.JK", "SIDO.JK", "CDIA.JK", "ASII.JK", "GOTO.JK", "BRIS.JK", "AMRT.JK"]
+        r = requests.post(url, json=payload, timeout=10)
+        if r.status_code == 200:
+            print("✅ Berhasil terkirim ke Telegram!")
+        else:
+            print(f"❌ Gagal kirim ({r.status_code}):", r.text)
+    except Exception as e:
+        print("❌ Error Telegram:", e)
 
-# 2. Analisis Real-Time Saham (Cek Kenaikan Harga & Volume)
-def scan_single_stock(ticker):
-    try:
-        stock = yf.Ticker(ticker)
-        df = stock.history(period="5d")
-        
-        if df.empty or len(df) < 2:
-            return None
-        
-        # Ambil harga penutupan & volume 2 hari terakhir
-        close_now = df['Close'].iloc[-1]
-        close_prev = df['Close'].iloc[-2]
-        vol_now = df['Volume'].iloc[-1]
-        
-        # Syarat Sinyal: Harga Naik (>0%) dan Ada Volume Transaksi Real
-        change_pct = ((close_now - close_prev) / close_prev) * 100
-        
-        if change_pct > 0 and vol_now > 100000:
-            clean_ticker = ticker.replace(".JK", "")
-            return {
-                "ticker": clean_ticker,
-                "change": change_pct,
-                "volume": vol_now
-            }
-    except Exception:
-        return None
-    return None
+def get_stock_data(tickers):
+    results = []
+    for ticker in tickers:
+        try:
+            stock = yf.Ticker(f"{ticker}.JK")
+            df = stock.history(period="2d")
+            if not df.empty and len(df) >= 2:
+                last_price = int(df['Close'].iloc[-1])
+                prev_price = int(df['Close'].iloc[-2])
+                change_pct = round(((last_price - prev_price) / prev_price) * 100, 2)
+                results.append(f"• <b>{ticker}</b>: Rp {last_price:,} ({change_pct:+}% )")
+        except Exception:
+            pass
+    return "\n".join(results) if results else "• Data belum tersedia"
 
-# 3. Eksekusi Multithreading & Ambil Top 50 Saham
-def run_scanner():
-    all_tickers = get_all_idx_tickers()
-    valid_signals = []
+def main():
+    mode = sys.argv[1] if len(sys.argv) > 1 else "default"
     
-    # Gunakan ThreadPoolExecutor agar scan cepat (1-2 menit)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-        results = executor.map(scan_single_stock, all_tickers)
-        for res in results:
-            if res:
-                valid_signals.append(res)
-                
-    # Urutkan berdasarkan Kenaikan Persentase Harga Terbesar
-    sorted_signals = sorted(valid_signals, key=lambda x: x['change'], reverse=True)
-    
-    # Ambil Top 50 Ticker Saham
-    top_50 = [s['ticker'] for s in sorted_signals[:50]]
-    
-    return top_50
+    if mode == "asia":
+        msg = """🌏 <b>[SERBABISA.ID] UPDATE PASAR ASIA (09:30 WIB)</b> 🌏
 
-# --- MAIN EXECUTION ---
-if __name__ == "__main__":
-    top_tickers = run_scanner()
-    
-    if top_tickers:
-        tickers_str = ", ".join(top_tickers)
-        log_message = f"[{datetime.now().strftime('%d-%m-%Y %H:%M WIB')}] TOP 50 SIGNAL: {tickers_str}\n"
+Sentimen bursa regional pagi ini sebagai acuan IHSG. Tetap prioritaskan manajemen risiko pada portofolio Anda.
+
+🌐 <i>Pantau Chart Interaktif:</i> https://serbabisa.id"""
+
+    elif mode == "rekomendasi":
+        stocks_info = get_stock_data(["INET", "BRIS", "ENRG", "CDIA"])
+        msg = f"""🎯 <b>[SERBABISA.ID] REKOMENDASI SAHAM (10:15 WIB)</b> 🎯
+
+Saham potensial yang masuk radar pantauan jam bursa pagi ini:
+{stocks_info}
+
+💡 <i>Disiplin dengan Trading Plan & Stop Loss masing-masing.</i>"""
+
+    elif mode == "sesi1":
+        msg = """⏳ <b>[SERBABISA.ID] JELANG PENUTUPAN SESI 1 (11:50 WIB)</b> ⏳
+
+10 menit menuju akhir Sesi 1. Evaluasi posisi trading harian Anda, amankan profit (*Take Profit*) untuk saham yang telah mencapai target."""
+
+    elif mode == "sesi2":
+        stocks_info = get_stock_data(["BUMI", "ENRG", "GOTO"])
+        msg = f"""🔥 <b>[SERBABISA.ID] SINYAL BSJP / KONTRAK SORE (15:50 WIB)</b> 🔥
+
+10 menit jelang penutupan Sesi 2! Pantauan saham akumulasi sore ini untuk skenario Beli Sore Jual Pagi (BSJP):
+{stocks_info}
+
+🌐 https://serbabisa.id"""
+
+    elif mode == "rangkuman":
+        stocks_info = get_stock_data(["INET", "BRIS", "ENRG", "CDIA", "BUMI", "GOTO", "TLKM"])
+        msg = f"""🌙 <b>[SERBABISA.ID] WATCHLIST & RANGKUMAN (20:00 WIB)</b> 🌙
+
+Rangkuman pergerakan saham utama hari ini untuk acuan trading besok pagi:
+{stocks_info}
+
+📊 <i>Siapkan Trading Plan & daftar antrean order untuk besok.</i>"""
+
     else:
-        log_message = f"[{datetime.now().strftime('%d-%m-%Y %H:%M WIB')}] TIDAK ADA SIGNAL TERDETEKSI\n"
-        
-    with open("auto.log", "w") as f:
-        f.write(log_message)
-        
-    print("Scan Pasar Real-Time Selesai!")
+        msg = "🚨 Pemindaian otomatis serbabisa.id aktif."
+
+    send_telegram(msg)
+
+if __name__ == "__main__":
+    main()
