@@ -8,8 +8,8 @@ def send_telegram_message(message):
     # Sesuaikan fungsi pengiriman Telegram yang sudah ada di proyek Anda
     # Contoh menggunakan token bot dan chat ID langsung atau memanggil fungsi modul lain
     import os
-    TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-    CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+    TOKEN = os.getenv("8784775406:AAG815Z3eeg4g5Aihrxiwu2fjbIZbe_qCII")
+    CHAT_ID = os.getenv("347896274")
     if TOKEN and CHAT_ID:
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
