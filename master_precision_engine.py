@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Konfigurasi Bot / Channel Telegram
-TELEGRAM_TOKEN = "8784775406:AAFJRPUyDEbGHGm7tvkVq0epdLczjOyQn0E"
+TELEGRAM_TOKEN = "8784775406:AAG815Z3eeg4g5Aihrxiu2fjbIZbe_qCII"
 TELEGRAM_CHAT_ID = "347896274"
 
 COMMODITIES_MAP = {
