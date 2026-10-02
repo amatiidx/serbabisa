@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cetak Voucher Hotspot</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --warna: #0b5ed7;      /* warna utama kartu, bisa diganti dari panel */
+    --teks: #111;
+    --garis: #999;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: var(--teks); background: #eef1f5; }
+
+  /* ---------- Panel pengaturan (tidak ikut tercetak) ---------- */
+  .panel { background: #fff; padding: 12px 16px; border-bottom: 1px solid #ccc; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
+  .panel label { font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+  .panel input, .panel select { padding: 5px 6px; font-size: 13px; border: 1px solid #bbb; border-radius: 4px; }
+  .panel textarea { width: 100%; height: 90px; font-family: monospace; font-size: 12px; padding: 6px; border: 1px solid #bbb; border-radius: 4px; }
+  .panel .full { flex-basis: 100%; display: block; }
+  .panel .full textarea { margin-top: 4px; }
+  .panel button { padding: 8px 16px; border: 0; border-radius: 4px; background: var(--warna); color: #fff; font-weight: bold; cursor: pointer; }
+  .panel button.sec { background: #6c757d; }
+
+  /* ---------- Halaman voucher ---------- */
+  .lembar { padding: 8mm; display: grid; grid-template-columns: repeat(var(--kolom, 4), 1fr); gap: 2mm; background: #fff; max-width: 210mm; margin: 12px auto; }
+
+  .v { border: 1px dashed var(--garis); padding: 1.5mm; break-inside: avoid; page-break-inside: avoid; font-size: 9px; position: relative; }
+  .v .head { display: flex; justify-content: space-between; align-items: center; background: var(--warna); color: #fff; padding: 1mm 1.5mm; border-radius: 1mm; }
+  .v .head .nama { font-weight: bold; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .v .head .harga { font-weight: bold; font-size: 10px; white-space: nowrap; }
+  .v .isi { display: flex; gap: 1.5mm; margin-top: 1.5mm; align-items: center; }
+  .v .data { flex: 1; min-width: 0; }
+  .v .lbl { font-size: 7.5px; color: #555; }
+  .v .kode { font-family: "Courier New", monospace; font-weight: bold; font-size: 14px; letter-spacing: .5px; border: 1px solid var(--warna); text-align: center; padding: .5mm; border-radius: 1mm; word-break: break-all; }
+  .v .userpass { font-family: "Courier New", monospace; font-weight: bold; font-size: 11px; word-break: break-all; }
+  .v .info { margin-top: 1mm; font-size: 8px; line-height: 1.35; }
+  .v .qr { width: 15mm; height: 15mm; flex: none; }
+  .v .qr img, .v .qr canvas { width: 100% !important; height: 100% !important; }
+  .v .foot { display: flex; justify-content: space-between; margin-top: 1mm; font-size: 7.5px; color: #444; border-top: 1px dotted #bbb; padding-top: .7mm; }
+
+  /* Mode thermal 58mm: satu kolom, tanpa warna latar */
+  body.thermal .lembar { max-width: 58mm; padding: 2mm; --kolom: 1 !important; grid-template-columns: 1fr; }
+  body.thermal .v { border: 0; border-bottom: 1px dashed #000; padding: 2mm 0; font-size: 10px; }
+  body.thermal .v .head { background: none; color: #000; border-bottom: 1px solid #000; border-radius: 0; }
+  body.thermal .v .kode { border-color: #000; font-size: 16px; }
+  body.thermal .v .qr { width: 18mm; height: 18mm; }
+
+  @media print {
+    body { background: #fff; }
+    .panel { display: none; }
+    .lembar { margin: 0; padding: 0; max-width: none; }
+    .v, .v .head { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  @page { size: A4; margin: 8mm; }
+</style>
+</head>
+<body>
+
+<div class="panel" id="panel">
+  <label>Nama Hotspot <input id="fNama" value="WIFI HOTSPOT"></label>
+  <label>DNS Name (login) <input id="fDns" value="wifi.net"></label>
+  <label>Harga default <input id="fHarga" value="5000"></label>
+  <label>Masa aktif default <input id="fAktif" value="1 Hari"></label>
+  <label>Kolom
+    <select id="fKolom"><option>3</option><option selected>4</option><option>5</option><option>6</option></select>
+  </label>
+  <label>Mode
+    <select id="fMode"><option value="a4">A4 (kartu)</option><option value="thermal">Thermal 58mm</option></select>
+  </label>
+  <label>QR Code
+    <select id="fQr"><option value="1">Tampil</option><option value="0">Sembunyi</option></select>
+  </label>
+  <label>Warna <input id="fWarna" type="color" value="#0b5ed7"></label>
+  <label class="full">Daftar voucher, satu per baris: <code>username,password,profil,harga,masa_aktif,batas_waktu,kuota</code>
+    (kolom setelah username boleh dikosongkan; kalau password kosong/sama dengan username, dicetak sebagai <b>Kode Voucher</b>)
+    <textarea id="fData">abc123
+xyz789
+budi,rahasia,Member,50000,30 Hari,,10 GB</textarea>
+  </label>
+  <button onclick="render()">Tampilkan</button>
+  <button onclick="window.print()">Cetak</button>
+  <button class="sec" onclick="document.getElementById('panel').style.display='none'">Sembunyikan panel</button>
+</div>
+
+<div class="lembar" id="lembar"></div>
+
+<script>
+/*
+ * CARA INTEGRASI DENGAN BILLING
+ * -----------------------------
+ * Billing cukup mengisi variabel window.VOUCHER_CONFIG dan window.VOUCHERS
+ * SEBELUM script ini dijalankan, misalnya dari PHP:
+ *
+ *   <script>
+ *     window.VOUCHER_CONFIG = <?= json_encode(['nama'=>'NAMA WIFI','dns'=>'wifi.net','mode'=>'a4','kolom'=>4,'autoprint'=>true]) ?>;
+ *     window.VOUCHERS = <?= json_encode($daftar_voucher) ?>;
+ *   <\/script>
+ *
+ * Format tiap voucher (semua field selain username opsional):
+ *   { username, password, profil, harga, masa_aktif, batas_waktu, kuota }
+ */
+
+const $ = id => document.getElementById(id);
+
+function rupiah(n) {
+  if (n === '' || n == null) return '';
+  const angka = Number(String(n).replace(/[^\d]/g, ''));
+  return isNaN(angka) || angka === 0 ? String(n) : 'Rp ' + angka.toLocaleString('id-ID');
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function parseTextarea(text) {
+  return text.split('\n').map(b => b.trim()).filter(Boolean).map(b => {
+    const [username, password, profil, harga, masa_aktif, batas_waktu, kuota] = b.split(',').map(x => (x ?? '').trim());
+    return { username, password, profil, harga, masa_aktif, batas_waktu, kuota };
+  });
+}
+
+function render(list) {
+  const cfg = {
+    nama: $('fNama').value, dns: $('fDns').value, harga: $('fHarga').value,
+    aktif: $('fAktif').value, kolom: $('fKolom').value, mode: $('fMode').value,
+    qr: $('fQr').value === '1', warna: $('fWarna').value
+  };
+  const data = list || parseTextarea($('fData').value);
+
+  document.body.classList.toggle('thermal', cfg.mode === 'thermal');
+  document.documentElement.style.setProperty('--warna', cfg.warna);
+  const lembar = $('lembar');
+  lembar.style.setProperty('--kolom', cfg.kolom);
+  lembar.innerHTML = '';
+
+  data.forEach((v, i) => {
+    const pass = v.password || v.username;
+    const modeVoucher = pass === v.username;
+    const harga = rupiah(v.harga || cfg.harga);
+    const aktif = v.masa_aktif || cfg.aktif;
+
+    const kartu = document.createElement('div');
+    kartu.className = 'v';
+    kartu.innerHTML = `
+      <div class="head"><span class="nama">${esc(cfg.nama)}</span><span class="harga">${esc(harga)}</span></div>
+      <div class="isi">
+        <div class="data">
+          ${modeVoucher
+            ? `<div class="lbl">Kode Voucher</div><div class="kode">${esc(v.username)}</div>`
+            : `<div class="lbl">Username</div><div class="userpass">${esc(v.username)}</div>
+               <div class="lbl">Password</div><div class="userpass">${esc(pass)}</div>`}
+          <div class="info">
+            ${aktif ? `Aktif: <b>${esc(aktif)}</b><br>` : ''}
+            ${v.batas_waktu ? `Waktu: <b>${esc(v.batas_waktu)}</b><br>` : ''}
+            ${v.kuota ? `Kuota: <b>${esc(v.kuota)}</b><br>` : ''}
+            ${v.profil ? `Paket: ${esc(v.profil)}` : ''}
+          </div>
+        </div>
+        ${cfg.qr ? '<div class="qr"></div>' : ''}
+      </div>
+      <div class="foot"><span>Login: http://${esc(cfg.dns)}</span><span>#${i + 1}</span></div>`;
+    lembar.appendChild(kartu);
+
+    // QR berisi link login otomatis seperti Mikhmon
+    if (cfg.qr && window.QRCode) {
+      const url = `http://${cfg.dns}/login?username=${encodeURIComponent(v.username)}&password=${encodeURIComponent(pass)}`;
+      new QRCode(kartu.querySelector('.qr'), { text: url, width: 128, height: 128, correctLevel: QRCode.CorrectLevel.L });
+    }
+  });
+}
+
+// Data dari billing (jika ada) mengisi panel lalu langsung dirender
+(function init() {
+  const c = window.VOUCHER_CONFIG || {};
+  if (c.nama) $('fNama').value = c.nama;
+  if (c.dns) $('fDns').value = c.dns;
+  if (c.harga) $('fHarga').value = c.harga;
+  if (c.masa_aktif) $('fAktif').value = c.masa_aktif;
+  if (c.kolom) $('fKolom').value = c.kolom;
+  if (c.mode) $('fMode').value = c.mode;
+  if (c.qr === false) $('fQr').value = '0';
+  if (c.warna) $('fWarna').value = c.warna;
+
+  if (Array.isArray(window.VOUCHERS)) {
+    $('panel').style.display = 'none';
+    render(window.VOUCHERS);
+    if (c.autoprint) setTimeout(() => window.print(), 600);
+  } else {
+    render();
+  }
+})();
+</script>
+</body>
+</html>
