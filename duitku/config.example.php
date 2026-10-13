@@ -4,7 +4,7 @@ return [
     'mode'          => 'production',            // 'sandbox' untuk uji coba
     'merchant_code' => 'D25220',
     'api_key'       => 'ISI_API_KEY_DI_SINI',
-    'callback_url'  => 'https://master.serbabisa.id/webhook/duitku.php',
+    'callback_url'  => 'https://master.serbabisa.id/duitku/callback.php',
     'return_url'    => 'https://master.serbabisa.id/duitku/selesai.php',
     'expiry_menit'  => 1440,                    // batas bayar 24 jam
 
