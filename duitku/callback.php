@@ -48,8 +48,18 @@ try {
         }
         $db->prepare("UPDATE duitku_transaksi SET status='LUNAS', reference=?, metode=?, dibayar=NOW() WHERE id=?")
            ->execute([$reference, $paymentCode, $trx['id']]);
-        tandai_lunas($db, $trx['tagihan_id'], (int) $amount, $reference);
-        catat("LUNAS tagihan={$trx['tagihan_id']} order=$orderId metode=$paymentCode");
+        if ($trx['jenis'] === 'BULANAN') {
+            $ins = $db->prepare("INSERT IGNORE INTO duitku_bulanan (pelanggan_id, periode, jumlah, order_id) VALUES (?,?,?,?)");
+            $ins->execute([$trx['tagihan_id'], $trx['periode'], (int) $amount, $orderId]);
+            if ($ins->rowCount() === 0) {
+                catat("PERHATIAN bayar dobel bulanan pelanggan={$trx['tagihan_id']} periode={$trx['periode']} order=$orderId (cek refund)");
+            } else {
+                lunas_bulanan($db, $trx['tagihan_id'], $trx['periode'], (int) $amount, $reference);
+            }
+        } else {
+            tandai_lunas($db, $trx['tagihan_id'], (int) $amount, $reference);
+        }
+        catat("LUNAS {$trx['jenis']} id={$trx['tagihan_id']} order=$orderId metode=$paymentCode");
     } else {
         $db->prepare("UPDATE duitku_transaksi SET status='GAGAL' WHERE id=? AND status='PENDING'")
            ->execute([$trx['id']]);

@@ -21,6 +21,14 @@ e-wallet, minimarket) -> setelah bayar, `callback.php` menandai tagihan **LUNAS*
 6. Di `portal.php`, tambahkan tombol per tagihan:
    `<a href="/duitku/bayar.php?tagihan=<?= $tagihan['id'] ?>">Bayar Online</a>`
 
+## Pelanggan bulanan
+Halaman umum: `https://master.serbabisa.id/duitku/bulanan.php`
+Pelanggan ketik ID pelanggan / username PPPoE -> muncul nama (disamarkan), paket,
+dan jumlah -> klik Bayar. Setelah lunas, `lunas_bulanan()` di `tagihan.php`
+mengaktifkan pelanggan dan memperpanjang jatuh tempo 1 bulan.
+Satu pelanggan hanya bisa bayar sekali per bulan (tabel `duitku_bulanan`).
+Bagikan link itu lewat WA/broadcast, atau pasang tombolnya di `portal.php`.
+
 ## Uji coba
 Set `'mode' => 'sandbox'` dan pakai Merchant Code/API Key sandbox dulu.
 Kalau tagihan berubah LUNAS setelah bayar simulasi, ganti ke `production`.
