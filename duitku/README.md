@@ -8,9 +8,16 @@ e-wallet, minimarket) -> setelah bayar, `callback.php` menandai tagihan **LUNAS*
 2. Salin `config.example.php` jadi `config.php`, isi Merchant Code, API Key, dan data database.
 3. Jalankan `tabel.sql` sekali di database (phpMyAdmin).
 4. Sesuaikan `tagihan.php` dengan nama tabel/kolom tagihan & pelanggan di portal.
-5. Dashboard Duitku > My Projects > proyek Anda, isi:
-   - Callback URL: `https://master.serbabisa.id/duitku/callback.php`
-   - Return URL:   `https://master.serbabisa.id/duitku/selesai.php`
+5. Dashboard Duitku > My Projects > proyek Anda, isi Callback URL:
+   `https://master.serbabisa.id/portal.php`
+   lalu tempel ini di BARIS PALING ATAS `portal.php` (tepat setelah `<?php`):
+   ```php
+   // Callback Duitku: POST dari server Duitku diteruskan ke modul pembayaran
+   if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['merchantCode'], $_POST['merchantOrderId'], $_POST['signature'])) {
+       require __DIR__ . '/duitku/callback.php';
+       exit;
+   }
+   ```
 6. Di `portal.php`, tambahkan tombol per tagihan:
    `<a href="/duitku/bayar.php?tagihan=<?= $tagihan['id'] ?>">Bayar Online</a>`
 
