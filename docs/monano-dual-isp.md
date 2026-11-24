@@ -8,6 +8,17 @@ Tujuan:
 
 Skrip ini untuk **RouterOS v7** (memakai `/routing table`). Untuk v6 bagian routing-table harus diganti `routing-mark` di `/ip route`.
 
+## Aman untuk remote
+
+Kalau router dikonfigurasi dari jauh (Winbox lewat VPN/tunnel, IP publik, atau MikroTik Cloud), ikuti ini supaya akses tidak putus:
+
+1. **Nyalakan Safe Mode** dulu (Winbox: tombol *Safe Mode*; terminal: `Ctrl+X`). Kalau koneksi remote putus, semua perubahan dibatalkan otomatis dalam ±9 menit.
+2. **Tambahkan route baru dulu**, baru matikan `add-default-route` (urutan di bagian 2 sudah begitu). Kalau dibalik, router sempat tanpa internet dan remote langsung putus.
+3. **Remote dari LAN/hotspot** (misal Winbox dari laptop di VLAN) aman, karena trafik lokal dilewati di aturan mangle pertama.
+4. **Remote lewat IP publik Indihome**: balasan router dipaksa keluar lewat Indihome lagi (mark `IH-in` di bagian 5), jadi tidak putus.
+5. **Remote lewat VPN client di router** (umum dipakai karena Starlink CGNAT): VPN ikut tabel `main`, jadi lewat Starlink dan pindah ke Indihome kalau Starlink mati. Kalau mau VPN selalu lewat satu ISP, tambahkan route khusus ke IP server VPN (lihat contoh di bagian 2).
+6. Jangan tutup jendela remote sebelum `/ip route print` menunjukkan route default aktif (flag `A`).
+
 ## 0. Ganti dulu placeholder ini
 
 Semua nilai di bawah adalah contoh. Cek di router (`/interface print`, `/ip dhcp-client print`, `/ip route print`) lalu ganti sebelum paste.
@@ -53,14 +64,6 @@ Cek gateway dengan `ping` biasa ke gateway Starlink sering menipu: dish tetap me
 /routing table
 add name=to-IH fib
 
-/ip dhcp-client
-# Matikan default route otomatis dari DHCP Starlink supaya tidak bentrok
-set [find interface=ether1-SL] add-default-route=no
-# Jika IH juga DHCP (ONT mode router), lakukan hal yang sama:
-# set [find interface=ether2-IH] add-default-route=no
-# Jika IH PPPoE client:
-/interface pppoe-client set [find name=pppoe-IH] add-default-route=no
-
 /ip route
 # Host pengecek: masing-masing dipaksa lewat ISP-nya
 add dst-address=1.1.1.1/32 gateway=GW_SL scope=10 comment="cek SL"
@@ -73,7 +76,24 @@ add dst-address=0.0.0.0/0 gateway=8.8.8.8 target-scope=11 check-gateway=ping dis
 # Tabel to-IH (game + WA): IH utama, SL cadangan
 add dst-address=0.0.0.0/0 gateway=8.8.8.8 target-scope=11 check-gateway=ping distance=1 routing-table=to-IH comment="IH utama"
 add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=2 routing-table=to-IH comment="IH backup via SL"
+
+# (Opsional) VPN remote selalu lewat satu ISP. Ganti IP_SERVER_VPN dengan IP server VPN Anda.
+# add dst-address=IP_SERVER_VPN/32 gateway=8.8.8.8 target-scope=11 check-gateway=ping distance=1 comment="VPN remote via IH"
+# add dst-address=IP_SERVER_VPN/32 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=2 comment="VPN remote backup via SL"
 ```
+
+Cek dulu `/ip route print`: route `main via SL` harus aktif (flag `A`). **Baru setelah itu** matikan default route otomatis dari ISP supaya tidak bentrok:
+
+```routeros
+/ip dhcp-client
+set [find interface=ether1-SL] add-default-route=no
+# Jika IH juga DHCP (ONT mode router), lakukan hal yang sama:
+# set [find interface=ether2-IH] add-default-route=no
+# Jika IH PPPoE client:
+/interface pppoe-client set [find name=pppoe-IH] add-default-route=no
+```
+
+Saat masih ada route default dari DHCP/PPPoE (distance 1), route rekursif di atas mungkin belum aktif karena kalah prioritas. Itu normal; setelah `add-default-route=no` route rekursif yang dipakai.
 
 Akibat samping: ping ke 1.1.1.1 selalu lewat SL, dan ke 8.8.8.8 selalu lewat IH. Jika pelanggan memakai DNS 1.1.1.1/8.8.8.8 langsung itu tetap jalan, hanya jalurnya tetap.
 
