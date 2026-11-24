@@ -33,6 +33,8 @@ Semua nilai di bawah adalah contoh. Cek di router (`/interface print`, `/ip dhcp
 | `LAN` | Interface list berisi semua sisi LAN, termasuk `vlan20` (hotspot) dan `vlan30` (PPPoE server) | `/interface list member print` |
 | `192.168.0.0/16`, `10.0.0.0/8` dll | Subnet lokal (hotspot, PPPoE pool, management) | `/ip address print`, `/ip pool print` |
 
+> **Dua modem satu subnet:** kalau router Starlink dan ONT Indihome sama-sama memberi `192.168.1.0/24` dengan gateway `192.168.1.1`, router tidak bisa membedakan ISP dari IP gateway. Tulis gateway dengan nama interface, misal `GW_SL` = `192.168.1.1%ether1-Starlink` dan `GW_IH` = `192.168.1.1%ether2-Indi`. Solusi permanen: ganti subnet LAN salah satu modem (misal ONT Indihome ke `192.168.2.1/24`) saat di lokasi.
+>
 > Catatan: Starlink dalam mode bypass biasanya memberi IP CGNAT `100.64.x.x`. Jangan menebak gateway, ambil dari DHCP client.
 
 ## 1. Interface list dan address list lokal
