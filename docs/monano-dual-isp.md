@@ -17,7 +17,8 @@ Kalau router dikonfigurasi dari jauh (Winbox lewat VPN/tunnel, IP publik, atau M
 3. **Remote dari LAN/hotspot** (misal Winbox dari laptop di VLAN) aman, karena trafik lokal dilewati di aturan mangle pertama.
 4. **Remote lewat IP publik Indihome**: balasan router dipaksa keluar lewat Indihome lagi (mark `IH-in` di bagian 5), jadi tidak putus.
 5. **Remote lewat VPN client di router** (umum dipakai karena Starlink CGNAT): VPN ikut tabel `main`, jadi lewat Starlink dan pindah ke Indihome kalau Starlink mati. Kalau mau VPN selalu lewat satu ISP, tambahkan route khusus ke IP server VPN (lihat contoh di bagian 2).
-6. Jangan tutup jendela remote sebelum `/ip route print` menunjukkan route default aktif (flag `A`).
+6. **WireGuard**: lihat bagian 9.
+7. Jangan tutup jendela remote sebelum `/ip route print` menunjukkan route default aktif (flag `A`).
 
 ## 0. Ganti dulu placeholder ini
 
@@ -214,6 +215,36 @@ Koneksi Starlink tetap di-FastTrack (tanpa tanda), jadi CPU tetap ringan.
 3. Cek `/ip firewall mangle print stats` agar counter rule bertambah.
 4. Uji failover: cabut kabel Starlink. Dalam ±10–30 detik route `main via SL` jadi unreachable dan semua lewat IH. Colok lagi, otomatis balik. Ulangi dengan Indihome.
 5. Speedtest dari klien harus menampilkan ISP Starlink; `https://ipinfo.io` dari klien juga.
+
+## 9. Remote lewat WireGuard
+
+### A. Router Monano sebagai client ke server/VPS (paling umum, karena Starlink CGNAT)
+
+Trafik WireGuard dibuat oleh router sendiri, jadi tidak kena mangle LAN di atas. Ia mengikuti tabel `main`: lewat Starlink, pindah ke Indihome kalau Starlink mati. Agar lebih stabil, kunci endpoint WireGuard ke Indihome (latensi lebih rata, tidak terpengaruh obstruksi dish) dengan Starlink sebagai cadangan. Ganti `IP_SERVER_WG` dengan IP publik server/VPS WireGuard (lihat `endpoint-address` di `/interface wireguard peers print`), dan `NAMA_PEER` dengan nama/komentar peer-nya.
+
+```routeros
+/ip route
+add dst-address=IP_SERVER_WG/32 gateway=8.8.8.8 target-scope=11 check-gateway=ping distance=1 comment="WG via IH"
+add dst-address=IP_SERVER_WG/32 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=2 comment="WG backup via SL"
+
+# Keepalive wajib supaya server cepat tahu alamat baru router setelah pindah ISP
+/interface wireguard peers
+set [find comment=NAMA_PEER] persistent-keepalive=25s
+```
+
+Kalau `endpoint-address` berupa nama domain (bukan IP), pakai IP hasil resolve-nya di route di atas, atau ganti endpoint ke IP.
+
+**Setelah failover tunnel kadang macet** karena koneksi lama masih tercatat. Netwatch ini menghapus koneksi WireGuard lama otomatis. `IP_TUNNEL_SERVER` adalah IP server di dalam tunnel (contoh `10.10.10.1`), `PORT_WG` adalah port `endpoint-port`.
+
+```routeros
+/tool netwatch
+add host=IP_TUNNEL_SERVER interval=30s timeout=2s comment="cek WG" \
+    down-script="/ip firewall connection remove [find protocol=udp dst-address~\"IP_SERVER_WG:PORT_WG\"]"
+```
+
+### B. Router Monano sebagai server (port WireGuard dibuka di IP publik Indihome)
+
+Tidak perlu tambahan. Paket masuk lewat Indihome diberi mark `IH-in`, dan balasannya dipaksa keluar lewat Indihome (bagian 5). Pastikan firewall input mengizinkan port WireGuard dari `pppoe-IH`, dan subnet tunnel WireGuard (misal `10.10.10.0/24`) termasuk dalam list `LOCAL` (sudah, jika memakai 10.0.0.0/8).
 
 ## Rollback
 
